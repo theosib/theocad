@@ -16,6 +16,7 @@ namespace theocad {
 
 using real = boost::rational<int64_t>;
 using Vector4r = Eigen::Matrix<real, 4, 1>;
+using Matrix4r = Eigen::Matrix<real, 4, 4>;
 
 inline Vector4r Point(real x, real y, real z) { return Vector4r(x, y, z, 1); }
 inline Vector4r Point() { return Point(0, 0, 0); }
@@ -24,10 +25,10 @@ inline Vector4r Vector() { return Vector(0, 0, 0); }
 
 inline std::ostream& operator<<(std::ostream& os, const Vector4r& i) {
     os << '<';
-    os << i[0] << ',';
-    os << i[1] << ',';
-    os << i[2] << ',';
-    os << i[3] << '>';
+    os << boost::rational_cast<float>(i[0]) << ',';
+    os << boost::rational_cast<float>(i[1]) << ',';
+    os << boost::rational_cast<float>(i[2]) << ',';
+    os << boost::rational_cast<float>(i[3]) << '>';
     return os;
 }
 
@@ -44,6 +45,8 @@ inline Vector4r cross(const Vector4r& a, const Vector4r& b) {
 inline real magnitudeSquared(const Vector4r& v) {
     return v[0]*v[0] + v[1]*v[1] + v[2]*v[2];
 }
+
+real rational_sqrt(real n, real threshold);
 
 struct Plane {
     real c[4]; // coefficients
@@ -122,6 +125,14 @@ public:
         valid = 0;
     }
     
+    Vector4r center() {
+        Vector4r total = Vector(0, 0, 0);
+        total += points[0];
+        total += points[1];
+        total += points[2];
+        return total / 3;
+    }
+    
     // Proxy operator[](int ix) { return Proxy(*this, ix); }
     const Vector4r& operator[](int ix) const { return points[ix]; }
     Vector4r& modifyPoint(int ix) {
@@ -190,6 +201,23 @@ public:
             if (!containsPoint(that.points[i])) return false;
         }
         return true;
+    }
+    
+    bool operator==(const Triangle& that) const {
+        if (points[0] == that.points[0]) {
+            if (points[1] == that.points[1] && points[2] == that.points[2]) return true;
+            if (points[1] == that.points[2] && points[2] == that.points[1]) return true;
+            return false;
+        } else if (points[0] == that.points[1]) {
+            if (points[1] == that.points[0] && points[2] == that.points[2]) return true;
+            if (points[1] == that.points[2] && points[2] == that.points[0]) return true;
+            return false;
+        } else if (points[0] == that.points[2]) {
+            if (points[1] == that.points[0] && points[2] == that.points[1]) return true;
+            if (points[1] == that.points[1] && points[2] == that.points[0]) return true;
+            return false;
+        }
+        return false;
     }
 };
 

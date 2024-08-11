@@ -29,6 +29,7 @@ private:
 
     void setupScene();
     void addSolid(SolidPtr solid);
+    void createNormalVisualization(const QVector3D& start, const QVector3D& normal);
     void setRenderMode(int mode);  // 0: Wireframe, 1: Faces, 2: Both
 
 protected:

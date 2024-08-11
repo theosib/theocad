@@ -2,8 +2,27 @@
 #include <iostream>
 
 namespace theocad {
+    
+real rational_sqrt(real n, real threshold) {
+    if (n < 0) return real();
+    real low = 0, high = n;
+    while (high - low > threshold) {
+        real mid = (low + high) / 2;
+        real val = mid * mid;
+        if (val <= n) {
+            low = mid;
+        }
+        else {
+            high = mid;
+        }
+    }
+    return high;
+} 
 
 void Plane::compute(const Vector4r *points) {
+    // std::cout << points[0] << std::endl;
+    // std::cout << points[1] << std::endl;
+    // std::cout << points[2] << std::endl;
     Vector4r v1 = points[1] - points[0];
     Vector4r v2 = points[2] - points[0];
     Vector4r n = cross(v1, v2);
@@ -11,6 +30,8 @@ void Plane::compute(const Vector4r *points) {
     c[1] = n.y();
     c[2] = n.z();
     c[3] = -dot(n, points[0]);
+    // std::cout << boost::rational_cast<float>(c[0]) << ' ' << boost::rational_cast<float>(c[1]) << ' ' << boost::rational_cast<float>(c[2])
+    //     << ' ' << boost::rational_cast<float>(c[3]) << std::endl;
 }
 
 bool Triangle::containsPoint(const Vector4r& p) const {

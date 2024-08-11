@@ -203,6 +203,7 @@ void sliceTriangles(const std::vector<Triangle>& A, const std::vector<Triangle>&
         result.insert(result.end(), p[src].begin(), p[src].end());
     }
     
+#if 0
     // Iterate over all triangles in B.
     for (const Triangle& p_init : B) {
         int src = 0;
@@ -223,6 +224,7 @@ void sliceTriangles(const std::vector<Triangle>& A, const std::vector<Triangle>&
         // The sliced p should be in p[src]
         result.insert(result.end(), p[src].begin(), p[src].end());
     }
+#endif
     
     // Boolean will have to find and deal with identical triangles
 }

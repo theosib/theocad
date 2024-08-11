@@ -1,5 +1,6 @@
 #include "bodies.hpp"
 #include <iostream>
+#include "rational_circle.hpp"
 
 namespace theocad {
 
@@ -51,12 +52,12 @@ UnitCube::UnitCube() {
 
     // Define the faces of the cube
     static int faces[6][4] = {
-        /*{0, 1, 2, 3}, // Bottom face
-        {4, 5, 6, 7}, // Top face
-        {0, 1, 5, 4}, // Front face
-        {2, 3, 7, 6}, // Back face
-        {0, 3, 7, 4}, // Left face
-        {1, 2, 6, 5}  // Right face*/        
+        // {0, 1, 2, 3}, // Bottom face
+        // {4, 5, 6, 7}, // Top face
+        // {0, 1, 5, 4}, // Front face
+        // {2, 3, 7, 6}, // Back face
+        // {0, 3, 7, 4}, // Left face
+        // {1, 2, 6, 5}  // Right face
         {0, 3, 2, 1}, // Bottom face (reversed)
         {4, 5, 6, 7}, // Top face (correct)
         {0, 1, 5, 4}, // Front face (correct)
@@ -82,8 +83,93 @@ UnitCube::UnitCube() {
     }
 }
 
+bool UnitCube::inside(const Vector4r& p) {
+    for (int i=0; i<3; i++) {
+        if (p[i] < 0 || p[i] > 1) return false;
+    }
+    return true;
+}
+
+UnitCylinder::UnitCylinder() {
+    int step = 5;
+    
+    Surface& top_surface = allocateSurface();
+    for (int a=0; a<360; a+=step) {
+        int b = a+step;
+        FIII a_fiii = find_rational_angle(a);
+        FIII b_fiii = find_rational_angle(b);
+        Triangle& t = top_surface.allocateTriangle();
+        t.modifyPoint(0) = Point(real(a_fiii.c, a_fiii.d), real(a_fiii.b, a_fiii.d), 1);
+        t.modifyPoint(1) = Point(real(b_fiii.c, b_fiii.d), real(b_fiii.b, b_fiii.d), 1);
+        t.modifyPoint(2) = Point(0, 0, 1);
+    }
+    Surface& bot_surface = allocateSurface();
+    for (int a=0; a<360; a+=step) {
+        int b = a-step;
+        FIII a_fiii = find_rational_angle(a);
+        FIII b_fiii = find_rational_angle(b);
+        Triangle& t = bot_surface.allocateTriangle();
+        t.modifyPoint(0) = Point(real(a_fiii.c, a_fiii.d), real(a_fiii.b, a_fiii.d), 0);
+        t.modifyPoint(1) = Point(real(b_fiii.c, b_fiii.d), real(b_fiii.b, b_fiii.d), 0);
+        t.modifyPoint(2) = Point(0, 0, 0);
+    }
+    Surface& outer_surface = allocateSurface();
+    for (int a=0; a<360; a+=step) {
+        int b = a+step;
+        FIII a_fiii = find_rational_angle(a);
+        FIII b_fiii = find_rational_angle(b);
+        Triangle& t1 = outer_surface.allocateTriangle();
+        t1.modifyPoint(0) = Point(real(b_fiii.c, b_fiii.d), real(b_fiii.b, b_fiii.d), 1);
+        t1.modifyPoint(1) = Point(real(a_fiii.c, a_fiii.d), real(a_fiii.b, a_fiii.d), 1);
+        t1.modifyPoint(2) = Point(real(a_fiii.c, a_fiii.d), real(a_fiii.b, a_fiii.d), 0);
+        Triangle& t2 = outer_surface.allocateTriangle();
+        t2.modifyPoint(0) = Point(real(a_fiii.c, a_fiii.d), real(a_fiii.b, a_fiii.d), 0);
+        t2.modifyPoint(1) = Point(real(b_fiii.c, b_fiii.d), real(b_fiii.b, b_fiii.d), 0);
+        t2.modifyPoint(2) = Point(real(b_fiii.c, b_fiii.d), real(b_fiii.b, b_fiii.d), 1);
+    }
+}
+
+bool UnitCylinder::inside(const Vector4r& p) {
+    // Check the vertical dimension
+    if (p[2] < 0 || p[2] > 1) return false;
+    
+    // Simple check if the point it outside of an ideal circle
+    real sqd = p[0]*p[0] + p[1]*p[1];
+    if (sqd > 1) return false;
+    
+    // Ray from center out to point
+    Line ray(Point(0, 0, 0), Point(p[0], p[1], 0));
+    
+    // Iterate all the edges of the bottom triangle looking to see if a
+    // line from the center intersects an outer edge
+    const Surface& bot(surfaces[0]);
+    for (int i=0; i<bot.size(); i++) {
+        const Triangle& tri(bot[i]);
+        Line tri_edge = tri.getEdge(0);
+        LineIntersection li = lineIntersection(ray, tri_edge);
+        
+        // Sanity check
+        if (!li.exists) continue;
+        if (!li.coplanar) std::cout << "Cylinder inclusion bug\n";
+        
+        // Skip this line if the triangle edge is not intersected
+        if (!li.inside_line[1]) continue;
+        
+        // If the intersection is inside the ray, then the point is outside
+        return !li.inside_line[0];
+    }
+    
+    return false;
+}
+
+virtual bool Transform::inside(const Vector4r& p) {
+    return child->inside(getInverse() * p);
+}
+
+
 // In the cpp file, define the global instances
 SolidPtr globalUnitCubePtr = std::make_shared<UnitCube>();
+SolidPtr globalUnitCylinderPtr = std::make_shared<UnitCylinder>();
 
 
 } // namespace theocad

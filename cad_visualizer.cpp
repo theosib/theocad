@@ -88,39 +88,43 @@ void CADVisualizer::setupScene()
     Qt3DCore::QTransform *lightTransform = new Qt3DCore::QTransform(lightEntity);
     lightEntity->addComponent(lightTransform);
 
-    // Connect the camera's viewVectorChanged signal to update the light position
+    // // Connect the camera's viewVectorChanged signal to update the light position
     // QObject::connect(camera, &Qt3DRender::QCamera::viewVectorChanged, [this, lightTransform]() {
     //     QVector3D cameraPosition = camera->position();
     //     lightTransform->setTranslation(cameraPosition);
     // });
 
-    QVector3D lightOffset(100.0f, 100.0f, 100.0f);  // Offset up and to the right
+    QVector3D lightOffset(20.0f, 20.0f, 0.0f);
 
-    // Connect the camera's viewVectorChanged signal to update the light position
+    //Connect the camera's viewVectorChanged signal to update the light position
     QObject::connect(camera, &Qt3DRender::QCamera::viewVectorChanged, [this, lightTransform, lightOffset]() {
         QVector3D cameraPosition = camera->position();
+        //std::cout << "Pos: " << cameraPosition.x() << ',' << cameraPosition.y() << ',' << cameraPosition.z() << std::endl;
+        QVector3D cameraView = camera->viewVector();
+        //std::cout << "View: " << cameraView.x() << ',' << cameraView.y() << ',' << cameraView.z() << std::endl;
         QVector3D cameraUpVector = camera->upVector();
         QVector3D cameraRightVector = QVector3D::crossProduct(camera->viewVector(), cameraUpVector).normalized();
-        
+
         // Calculate the light position relative to the camera
-        QVector3D lightPosition = cameraPosition + 
-                                  cameraUpVector * lightOffset.y() + 
-                                  cameraRightVector * lightOffset.x() + 
+        QVector3D lightPosition = cameraPosition +
+                                  cameraUpVector * lightOffset.y() +
+                                  cameraRightVector * lightOffset.x() +
                                   camera->viewVector().normalized() * -lightOffset.z();
-        
+        //std::cout << "Light: " << lightPosition.x() << ',' << lightPosition.y() << ',' << lightPosition.z() << std::endl;
+
         lightTransform->setTranslation(lightPosition);
     });
-    
+
     QVector3D cameraPosition = camera->position();
     QVector3D cameraUpVector = camera->upVector();
     QVector3D cameraRightVector = QVector3D::crossProduct(camera->viewVector(), cameraUpVector).normalized();
-    
+
     // Calculate the light position relative to the camera
-    QVector3D lightPosition = cameraPosition + 
-                              cameraUpVector * lightOffset.y() + 
-                              cameraRightVector * lightOffset.x() + 
+    QVector3D lightPosition = cameraPosition +
+                              cameraUpVector * lightOffset.y() +
+                              cameraRightVector * lightOffset.x() +
                               camera->viewVector().normalized() * -lightOffset.z();
-    
+
     lightTransform->setTranslation(lightPosition);
     
 
@@ -225,6 +229,9 @@ void CADVisualizer::addSolid(SolidPtr solid)
     Qt3DExtras::QPhongMaterial *material = new Qt3DExtras::QPhongMaterial(rootEntity);
     material->setAmbient(QColor(120, 120, 120));
     material->setDiffuse(QColor(200, 200, 200));
+    material->setSpecular(QColor(255, 255, 255));
+    material->setShininess(150.0f);
+
 
     // Create a wireframe material
     Qt3DExtras::QPhongMaterial *wireMaterial = new Qt3DExtras::QPhongMaterial(rootEntity);
@@ -270,11 +277,13 @@ void CADVisualizer::addSolid(SolidPtr solid)
             geometry->addAttribute(positionAttribute);
             
             // Create normal attribute
-            Vector4r normalVec = surface.getFace().getNormal();
+            Vector4r normalVec = triangle.getNormal();
             QVector3D normal(boost::rational_cast<float>(normalVec[0]),
                              boost::rational_cast<float>(normalVec[1]),
                              boost::rational_cast<float>(normalVec[2]));
             normal.normalize();
+            // std::cout << "Orig: " << normalVec[0] << ',' << normalVec[1] << ',' << normalVec[2] << std::endl;
+            // std::cout << "Normal: " << normal.x() << ',' << normal.y() << ',' << normal.z() << std::endl;
             
             QByteArray normalBufferBytes;
             normalBufferBytes.resize(3 * 3 * sizeof(float)); // 3 vertices * (3 floats per normal)
@@ -312,12 +321,83 @@ void CADVisualizer::addSolid(SolidPtr solid)
             triangleEntity->addComponent(mesh);
             triangleEntity->addComponent(material);
 
-            // Create a separate entity for the wireframe
+            // // Create a separate entity for the wireframe
             Qt3DCore::QEntity *wireframeEntity = new Qt3DCore::QEntity(triangleEntity);
             wireframeEntity->addComponent(wireMesh);
             wireframeEntity->addComponent(wireMaterial);
+
+            // Calculate the center of the triangle
+            QVector3D center(0, 0, 0);
+            for (int k = 0; k < 3; ++k) {
+                center += QVector3D(boost::rational_cast<float>(triangle[k][0]),
+                                    boost::rational_cast<float>(triangle[k][1]),
+                                    boost::rational_cast<float>(triangle[k][2]));
+            }
+            center /= 3;
+
+            createNormalVisualization(center, normal);
         }
     }
+}
+
+void CADVisualizer::createNormalVisualization(const QVector3D& start, const QVector3D& normal)
+{
+    QVector3D end = start + normal * 0.1f; // Scale factor for visibility
+
+    Qt3DCore::QEntity *lineEntity = new Qt3DCore::QEntity(rootEntity);
+    Qt3DRender::QGeometryRenderer *lineRenderer = new Qt3DRender::QGeometryRenderer(lineEntity);
+    Qt3DCore::QGeometry *lineGeometry = new Qt3DCore::QGeometry(lineRenderer);
+
+    // Position buffer
+    QByteArray positionBufferBytes;
+    positionBufferBytes.resize(2 * 3 * sizeof(float));
+    float* positions = reinterpret_cast<float*>(positionBufferBytes.data());
+    positions[0] = start.x(); positions[1] = start.y(); positions[2] = start.z();
+    positions[3] = end.x(); positions[4] = end.y(); positions[5] = end.z();
+
+    Qt3DCore::QBuffer *positionBuffer = new Qt3DCore::QBuffer(lineGeometry);
+    positionBuffer->setData(positionBufferBytes);
+
+    // Normal buffer (use the line direction as the normal for both vertices)
+    QByteArray normalBufferBytes;
+    normalBufferBytes.resize(2 * 3 * sizeof(float));
+    float* normals = reinterpret_cast<float*>(normalBufferBytes.data());
+    normals[0] = normal.x(); normals[1] = normal.y(); normals[2] = normal.z();
+    normals[3] = normal.x(); normals[4] = normal.y(); normals[5] = normal.z();
+
+    Qt3DCore::QBuffer *normalBuffer = new Qt3DCore::QBuffer(lineGeometry);
+    normalBuffer->setData(normalBufferBytes);
+
+    // Position attribute
+    Qt3DCore::QAttribute *positionAttribute = new Qt3DCore::QAttribute(lineGeometry);
+    positionAttribute->setName(Qt3DCore::QAttribute::defaultPositionAttributeName());
+    positionAttribute->setVertexBaseType(Qt3DCore::QAttribute::Float);
+    positionAttribute->setVertexSize(3);
+    positionAttribute->setAttributeType(Qt3DCore::QAttribute::VertexAttribute);
+    positionAttribute->setBuffer(positionBuffer);
+    positionAttribute->setByteStride(3 * sizeof(float));
+    positionAttribute->setCount(2);
+    lineGeometry->addAttribute(positionAttribute);
+
+    // Normal attribute
+    Qt3DCore::QAttribute *normalAttribute = new Qt3DCore::QAttribute(lineGeometry);
+    normalAttribute->setName(Qt3DCore::QAttribute::defaultNormalAttributeName());
+    normalAttribute->setVertexBaseType(Qt3DCore::QAttribute::Float);
+    normalAttribute->setVertexSize(3);
+    normalAttribute->setAttributeType(Qt3DCore::QAttribute::VertexAttribute);
+    normalAttribute->setBuffer(normalBuffer);
+    normalAttribute->setByteStride(3 * sizeof(float));
+    normalAttribute->setCount(2);
+    lineGeometry->addAttribute(normalAttribute);
+
+    lineRenderer->setGeometry(lineGeometry);
+    lineRenderer->setPrimitiveType(Qt3DRender::QGeometryRenderer::Lines);
+
+    Qt3DExtras::QPhongMaterial *lineMaterial = new Qt3DExtras::QPhongMaterial(lineEntity);
+    lineMaterial->setAmbient(QColor(255, 0, 0));  // Red for visibility
+
+    lineEntity->addComponent(lineRenderer);
+    lineEntity->addComponent(lineMaterial);
 }
 
 void CADVisualizer::setRenderMode(int mode) {

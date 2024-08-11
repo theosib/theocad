@@ -5,7 +5,7 @@ CONFIG += console c++17 warn_on release
 
 # Compiler and linker settings
 QMAKE_CXX = clang++
-QMAKE_CXXFLAGS += -Wall -Wextra -O2
+QMAKE_CXXFLAGS += -Wall -Wextra -g
 
 # Include paths
 INCLUDEPATH += /usr/include \
@@ -26,12 +26,17 @@ SOURCES += bodies.cpp \
            geometry.cpp \
            test.cpp \
            cad_visualizer.cpp \
-           triangle.cpp
+           triangle.cpp \
+           rational_circle.cpp \
+           transforms.cpp
 
 # Header files (optional, for clarity)
 HEADERS += bodies.hpp \
            cad_visualizer.hpp \
-           geometry.hpp
+           geometry.hpp \
+           rational_circle.hpp \
+           transforms.hpp \
+           collections.hpp
 
 # Qt modules
 QT += core gui widgets 3dcore 3drender 3dextras 3dinput 3dlogic
