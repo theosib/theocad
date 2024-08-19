@@ -10,7 +10,7 @@ bool cutTriangleByPlane(const Triangle& p, LineIntersection *p_plane_intersectio
     for (int i=0; i<3; i++) {
         int j = (i+2)%3;
         // End of one edge and start of the second edge after
-        if (p_plane_intersections[i].t[0] == 1 && p_plane_intersections[j].t[0] == 0) return false;
+        if (p_plane_intersections[i].exists && p_plane_intersections[j].exists && p_plane_intersections[i].t[0] == 1 && p_plane_intersections[j].t[0] == 0) return false;
     }
     
     // Now that we have all the interesections of plane_intersection with p, we can cut up p into pieces
@@ -20,11 +20,13 @@ bool cutTriangleByPlane(const Triangle& p, LineIntersection *p_plane_intersectio
         int j = (i+1)%3;
         int k = (i+2)%3;
         // Check to see if we're at the end of line i and the start of the next line (j) and also that the third side (k) is cut
-        if (p_plane_intersections[i].t[0] == 1 && p_plane_intersections[j].t[0] == 0 && p_plane_intersections[k].inside_line[0]) {
+        if (p_plane_intersections[i].exists && p_plane_intersections[j].exists && p_plane_intersections[k].exists && p_plane_intersections[i].t[0] == 1 && p_plane_intersections[j].t[0] == 0 && p_plane_intersections[k].inside_line[0]) {
             // Get the intersection point of the third side (k)
             Vector4r extra = p_plane_intersections[k].point[0];
-            result.push_back(Triangle(p[j], p[k], extra));
-            result.push_back(Triangle(extra, p[i], p[j]));
+            Triangle t1(p[j], p[k], extra);
+            Triangle t2(extra, p[i], p[j]);
+            if (t1.isValid()) result.push_back(t1);
+            if (t2.isValid()) result.push_back(t2);
             return true;
         }
     }
@@ -33,20 +35,28 @@ bool cutTriangleByPlane(const Triangle& p, LineIntersection *p_plane_intersectio
     for (int i=0; i<3; i++) {
         int j = (i+1)%3;
         //int k = (i+2)%3;
-        if (p_plane_intersections[i].inside_line[0] && p_plane_intersections[j].inside_line[0]) {
-            result.push_back(Triangle(p_plane_intersections[i].point[0], p[1], p_plane_intersections[j].point[0]));
-            result.push_back(Triangle(p[0], p_plane_intersections[i].point[0], p_plane_intersections[j].point[0]));
-            result.push_back(Triangle(p[0], p_plane_intersections[j].point[0], p[2]));
+        if (p_plane_intersections[i].exists && p_plane_intersections[j].exists && p_plane_intersections[i].inside_line[0] && p_plane_intersections[j].inside_line[0]) {
+            std::cout << "Cuts two i=" << i << " j=" << j << "\n";
+            Triangle t1(p_plane_intersections[i].point[0], p[1], p_plane_intersections[j].point[0]);
+            Triangle t2(p[0], p_plane_intersections[i].point[0], p_plane_intersections[j].point[0]);
+            Triangle t3(p[0], p_plane_intersections[j].point[0], p[2]);
+            if (t1.isValid()) result.push_back(t1);
+            if (t2.isValid()) result.push_back(t2);
+            if (t3.isValid()) result.push_back(t3);
             return true;
         }
     }
     
     // Shouldn't get here
+    // throw std::runtime_error("cut fail");
     std::cout << "All triangle cut cases failed\n";
     return false;
 }
 
 bool sliceTriangleByEdge(const Triangle& p, const Line& q_edge, std::vector<Triangle>& result) {
+    
+    std::cout << "Cutting " << p << " with " << q_edge << std::endl;
+    
     // Look for places where p it interesected by an edge of q
     LineIntersection p_plane_intersections[3];
     bool plane_intersects_p = false;
@@ -55,7 +65,7 @@ bool sliceTriangleByEdge(const Triangle& p, const Line& q_edge, std::vector<Tria
         LineIntersection& inter(p_plane_intersections[i]);
         inter = lineIntersection(p_edge, q_edge);
         // TODO add sanity check
-        if (inter.inside_line[0]) plane_intersects_p = true;
+        if (inter.exists && inter.inside_line[0]) plane_intersects_p = true;
     }
     if (!plane_intersects_p) {
         // Add p to result
@@ -66,7 +76,7 @@ bool sliceTriangleByEdge(const Triangle& p, const Line& q_edge, std::vector<Tria
     for (int i=0; i<3; i++) {
         int j = (i+2)%3;
         // End of one edge and start of the second edge after
-        if (p_plane_intersections[i].t[0] == 1 && p_plane_intersections[j].t[0] == 0) return false;
+        if (p_plane_intersections[i].exists && p_plane_intersections[j].exists && p_plane_intersections[i].t[0] == 1 && p_plane_intersections[j].t[0] == 0) return false;
     }
     
     return cutTriangleByPlane(p, p_plane_intersections, result);
@@ -115,9 +125,13 @@ bool sliceTriangleCoplanar(const Triangle& p, const Triangle& q, std::vector<Tri
 // Slice a triangle with the plane of another triangle. There will be at most one cutting plane.
 bool sliceTriangleNoncoplanar(const Triangle& p, const Triangle& q, std::vector<Triangle>& result) {
     // Compute line of intersection between p and q
+    std::cout << "Triangle p: " << p << std::endl;
+    std::cout << "Triangle q: " << q << std::endl;
     const Plane& plane_p = p.getPlane();
     const Plane& plane_q = q.getPlane();
     Line plane_intersection = planeIntersection(plane_p, plane_q);
+    
+    std::cout << "Intersecting line: " << plane_intersection << std::endl;
     
     // First check to be sure this line touches q. Since q is the slicer, if the slicing line is outside of q, then q 
     // isn't cutting p.
@@ -130,8 +144,10 @@ bool sliceTriangleNoncoplanar(const Triangle& p, const Triangle& q, std::vector<
         inter = lineIntersection(q_edge, plane_intersection);
         // TODO add sanity check
         
+        std::cout << "Q Edge=" << q_edge << " inter=" << inter << std::endl;
+        
         // The edge of q is line 0, so we check to see if the cutting plane cuts that edge
-        if (inter.inside_line[0]) plane_intersects_q = true;
+        if (inter.exists && inter.inside_line[0]) plane_intersects_q = true;
     }
     // If the cutting plane doesn't touch p, keep all of p.
     if (!plane_intersects_q) {
@@ -146,7 +162,7 @@ bool sliceTriangleNoncoplanar(const Triangle& p, const Triangle& q, std::vector<
         // 'j' the side after the nest, and we want to check its start point.
         int j = (i+2)%3;
         // End of one edge and start of the second edge after
-        if (q_plane_intersections[i].t[0] == 1 && q_plane_intersections[j].t[0] == 0) return false;
+        if (q_plane_intersections[i].exists && q_plane_intersections[j].exists && q_plane_intersections[i].t[0] == 1 && q_plane_intersections[j].t[0] == 0) return false;
     }
     
     // Similarly, check to make sure that the interesection line cuts p
@@ -156,8 +172,10 @@ bool sliceTriangleNoncoplanar(const Triangle& p, const Triangle& q, std::vector<
         Line p_edge = p.getEdge(i);
         LineIntersection& inter(p_plane_intersections[i]);
         inter = lineIntersection(p_edge, plane_intersection);
+        std::cout << "P Edge=" << p_edge << " inter=" << inter << std::endl;
+        
         // TODO add sanity check
-        if (inter.inside_line[0]) plane_intersects_p = true;
+        if (inter.exists && inter.inside_line[0]) plane_intersects_p = true;
     }
     if (!plane_intersects_p) {
         // Add p to result
@@ -170,26 +188,40 @@ bool sliceTriangleNoncoplanar(const Triangle& p, const Triangle& q, std::vector<
 
 
 void sliceTriangle(const Triangle& p, const Triangle& q, std::vector<Triangle>& result) {
+    std::cout << "Slicing " << p << " by " << q << std::endl;
+    std::cout << "Pnormal=" << p.getNormal() << " Qnormal=" << q.getNormal() << std::endl;
     if (p.parallelTo(q)) {
+        std::cout << "Parallel\n";
         if (p.coplanar(q)) {
+            std::cout << "Coplanar\n";
             if (!sliceTriangleCoplanar(p, q, result)) result.push_back(p);
         } else {
+            std::cout << "Just parallel\n";
             result.push_back(p);
         }
     } else {
+        std::cout << "Noncoplanar\n";
         if (!sliceTriangleNoncoplanar(p, q, result)) result.push_back(p);
     }
+    std::cout << "Result:";
+    for (const auto& i : result) {
+        std::cout << " " << i;
+    }
+    std::cout << std::endl;
 }
 
 void sliceTriangles(const std::vector<Triangle>& A, const std::vector<Triangle>& B, std::vector<Triangle>& result) {    
     // Iterate over all triangles in A.
+    int i = 0, j;
     for (const Triangle& p_init : A) {
         int src = 0;
         std::vector<Triangle> p[2];
         // Start off with just one triangle from A
         p[src].push_back(p_init);
         // Iterate over all triangles in B
+        j = 0;
         for (const Triangle& q : B) {
+            std::cout << " p" << i << " q" << j << std::endl;
             p[!src].clear();
             // Slice each triangle in our temp list against q
             for (const Triangle& r : p[src]) {
@@ -198,9 +230,11 @@ void sliceTriangles(const std::vector<Triangle>& A, const std::vector<Triangle>&
             }
             // Swap lists
             src = !src;
+            j++;
         }
         // The sliced p should be in p[src]
         result.insert(result.end(), p[src].begin(), p[src].end());
+        i++;
     }
     
 #if 0

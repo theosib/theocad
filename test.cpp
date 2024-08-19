@@ -34,6 +34,22 @@ int main()
 #include "cad_visualizer.hpp"
 #include "collections.hpp"
 
+#if 0
+int main() {
+    real sorta_zero;
+    int64_t actually_zero;
+    
+    actually_zero = 0;
+    sorta_zero.assign(0, -2341624772761848151);
+    
+    std::cout << sorta_zero << std::endl;
+    
+    std::cout << "a=b: " << (sorta_zero == 0) << std::endl;
+    std::cout << "b=a: " << (0 == sorta_zero) << std::endl;
+}
+#endif
+
+#if 1
 int main(int argc, char *argv[]) {
     std::cout << "Initializing app\n";
     QApplication app(argc, argv);
@@ -46,9 +62,13 @@ int main(int argc, char *argv[]) {
     trans->setShift(theocad::Vector(0, 0, 0));
     trans->setChild(cube);
     
-    std::shared_ptr<theocad::Collection> col = std::make_shared<theocad::Collection>();
-    col->addChild(cyl);
-    col->addChild(trans);
+    // std::shared_ptr<theocad::Collection> col = std::make_shared<theocad::Collection>();
+    // col->addChild(cyl);
+    // col->addChild(trans);
+
+    std::shared_ptr<theocad::Intersection> col = std::make_shared<theocad::Intersection>();
+    col->setChildA() = (cyl);
+    col->setChildB() = (trans);
 
 #if 0
     // Create a Transform object
@@ -99,3 +119,4 @@ int main(int argc, char *argv[]) {
     std::cout << "Exec\n";
     return app.exec();
 }
+#endif

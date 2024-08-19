@@ -19,10 +19,25 @@ real rational_sqrt(real n, real threshold) {
     return high;
 } 
 
+
+bool Line::parallelTo(const Line& that) const {
+    Vector4r dir1 = direction();
+    Vector4r dir2 = that.direction();
+
+    // Check if either line is actually a point
+    if (dir1 == Vector(0,0,0) || dir2 == Vector(0,0,0)) {
+        return false;
+    }
+
+    // Compute the cross product
+    Vector4r cross_product = cross(dir1, dir2);
+
+    // Check if all components of the cross product are exactly zero
+    return cross_product == Vector(0,0,0);
+}
+
+
 void Plane::compute(const Vector4r *points) {
-    // std::cout << points[0] << std::endl;
-    // std::cout << points[1] << std::endl;
-    // std::cout << points[2] << std::endl;
     Vector4r v1 = points[1] - points[0];
     Vector4r v2 = points[2] - points[0];
     Vector4r n = cross(v1, v2);
@@ -30,11 +45,15 @@ void Plane::compute(const Vector4r *points) {
     c[1] = n.y();
     c[2] = n.z();
     c[3] = -dot(n, points[0]);
-    // std::cout << boost::rational_cast<float>(c[0]) << ' ' << boost::rational_cast<float>(c[1]) << ' ' << boost::rational_cast<float>(c[2])
-    //     << ' ' << boost::rational_cast<float>(c[3]) << std::endl;
+    
+    std::cout << "Compute plane pts=" << points[0] << "," << points[1] << "," << points[2] << " v1=" << v1 << " v2=" << v2 << " n=" << n << " ";
+    
+    std::cout << boost::rational_cast<float>(c[0]) << ' ' << boost::rational_cast<float>(c[1]) << ' ' << boost::rational_cast<float>(c[2])
+        << ' ' << boost::rational_cast<float>(c[3]) << std::endl;
 }
 
 bool Triangle::containsPoint(const Vector4r& p) const {
+    std::cout << "Checking if point " << p << " in " << *this << std::endl;
     // Implement barycentric coordinate test
     // This is a simplified version and may need adjustment for exact arithmetic
     Vector4r v0 = points[2] - points[0];
@@ -83,9 +102,11 @@ LineIntersection lineIntersection(const Line& a, const Line& b) {
     std::cout << "nmag=" << n_mag_sq << std::endl;
 
     if (n_mag_sq == 0) {
+        printf("nmag is zero\n");
         // Lines are parallel
         Vector4r cross_r_db = cross(r, db);
         real cross_r_db_mag_sq = dot(cross_r_db, cross_r_db);
+        // std::cout << "Parallel, cross=" << cross_r_db << " sqmag=" << cross_r_db_mag_sq << std::endl;
         
         if (cross_r_db_mag_sq == 0) {
             // Lines are coplanar and parallel
@@ -105,6 +126,8 @@ LineIntersection lineIntersection(const Line& a, const Line& b) {
         return result;
     }
 
+    printf("nmag is NOT zero\n");
+    
     // Lines are not parallel
     result.exists = true;
     result.coplanar = true;  // Non-parallel lines in 3D always lie in a plane
@@ -134,6 +157,8 @@ LineIntersection lineIntersection(const Line& a, const Line& b) {
         result.skew = true;
         result.coplanar = false;
         result.exists = false;
+        result.inside_line[0] = false;
+        result.inside_line[1] = false;
     }
 
     return result;
@@ -147,8 +172,18 @@ Line planeIntersection(const Plane& plane1, const Plane& plane2) {
     Vector4r n1 = Vector(plane1.c[0], plane1.c[1], plane1.c[2]);
     Vector4r n2 = Vector(plane2.c[0], plane2.c[1], plane2.c[2]);
 
+    std::cout << "n1=" << n1 << std::endl;
+    std::cout << "n2=" << n2 << std::endl;
+
     // Direction of the intersection line
     Vector4r direction = cross(n1, n2);
+    std::cout << "Direction: " << direction << std::endl;
+    std::cout << "Dir:";
+    for (int i=0; i<3; i++) std::cout << " " << direction[i];
+    std::cout << std::endl;
+    std::cout << "Abs:";
+    for (int i=0; i<3; i++) std::cout << " " << abs(direction[i]);
+    std::cout << std::endl;
 
     // Find a point on the intersection line
     // We'll use the method of choosing the largest component of the direction vector

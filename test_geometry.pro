@@ -28,7 +28,8 @@ SOURCES += bodies.cpp \
            cad_visualizer.cpp \
            triangle.cpp \
            rational_circle.cpp \
-           transforms.cpp
+           transforms.cpp \
+           collections.cpp
 
 # Header files (optional, for clarity)
 HEADERS += bodies.hpp \

@@ -30,6 +30,12 @@ public:
         return mesh[ix];
     }
     
+    const std::vector<Triangle>& getMesh() const { return mesh; }
+    std::vector<Triangle>& setMesh() {
+        averagePlane_valid = false;
+        return mesh;
+    }
+    
     const Triangle& operator[](int ix) const {
         return mesh[ix];
     }
@@ -73,6 +79,8 @@ protected:
     
 public:
     virtual ~Solid() {}
+    
+    void clearSurfaces() { surfaces.clear(); }
     
     Surface& allocateSurface() {
         std::cout << "Allocating surface\n";

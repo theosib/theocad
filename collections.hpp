@@ -6,7 +6,9 @@
 namespace theocad {
     
 class Collection : public Solid {
+protected:
     std::vector<SolidPtr> children;
+    
 public:
     void addChild(SolidPtr c) {
         children.push_back(c);
@@ -26,15 +28,23 @@ public:
         }
         return n;
     }
+    
+    virtual bool inside(const Vector4r& p) {
+        for (const auto& c : children) {
+            if (c->inside(p)) return true;
+        }
+        return false;
+    }
 };
 
 class Boolean : public Solid {
+protected:
     SolidPtr a, b;
     std::vector<Surface> a_cut_surfaces, b_cut_surfaces;
     bool cuts_valid = false;
     
     void sliceTriangles();    
-    void sliceTriangles(SurfacePtr p, SurfacePtr q, std::vector<Surface>& p_cut_surfaces);
+    void sliceTriangles(SolidPtr p, SolidPtr q, std::vector<Surface>& p_cut_surfaces);
     
     void check_slices() {
         if (!cuts_valid) {
@@ -44,8 +54,8 @@ class Boolean : public Solid {
     }
     
 public:
-    SolidPtr& setChildA() { cuts_valid = false; return a; }
-    SolidPtr& setChildB() { cuts_valid = false; return b; }
+    virtual SolidPtr& setChildA() { cuts_valid = false; return a; }
+    virtual SolidPtr& setChildB() { cuts_valid = false; return b; }
     
     virtual int size() const { 
         const_cast<Boolean*>(this)->check_slices();
@@ -63,7 +73,7 @@ class Intersection : public Boolean {
     
     void computeBoolean();
     
-    void check_slices() {
+    void check_boolean() {
         if (!boolean_valid) {
             computeBoolean();
             boolean_valid = true;
@@ -71,17 +81,22 @@ class Intersection : public Boolean {
     }
     
 public:
+    SolidPtr& setChildA() { boolean_valid = false; return Boolean::setChildA(); }
+    SolidPtr& setChildB() { boolean_valid = false; return Boolean::setChildB(); }
     
     virtual int size() const { 
-        check_cache();
+        const_cast<Intersection*>(this)->check_boolean();
         return Solid::size(); 
     }
 
     virtual const Surface& operator[](int ix) const {
-        check_cache();
+        const_cast<Intersection*>(this)->check_boolean();
         return surfaces[ix];
     }
     
+    virtual bool inside(const Vector4r& p) {
+        return a->inside(p) && b->inside(p);
+    }
 };
 
 }

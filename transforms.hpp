@@ -66,6 +66,8 @@ public:
         check_cache();
         return surfaces[ix];
     }
+    
+    virtual bool inside(const Vector4r& p);
 };
 
 class Rotate : public Transform {
@@ -108,8 +110,6 @@ public:
         check_affine();
         return Transform::operator[](ix);
     }    
-    
-    virtual bool inside(const Vector4r& p);
 };
 
 class Translate : public Transform {

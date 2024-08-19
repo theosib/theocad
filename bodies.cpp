@@ -1,6 +1,8 @@
 #include "bodies.hpp"
+#include "transforms.hpp"
 #include <iostream>
 #include "rational_circle.hpp"
+#include <stdexcept>
 
 namespace theocad {
 
@@ -75,11 +77,21 @@ UnitCube::UnitCube() {
         t1.modifyPoint(0) = vertices[faces[i][0]];
         t1.modifyPoint(1) = vertices[faces[i][1]];
         t1.modifyPoint(2) = vertices[faces[i][2]];
+        if (!t1.isValid()) {
+            std::cout << "i=" << i << std::endl;
+            std::cout << t1 << std::endl;
+            throw std::runtime_error("bad triangle");
+        }
 
         Triangle& t2 = surface.allocateTriangle();
         t2.modifyPoint(0) = vertices[faces[i][0]];
         t2.modifyPoint(1) = vertices[faces[i][2]];
         t2.modifyPoint(2) = vertices[faces[i][3]];
+        if (!t2.isValid()) {
+            std::cout << "i=" << i << std::endl;
+            std::cout << t2 << std::endl;
+            throw std::runtime_error("bad triangle");
+        }
     }
 }
 
@@ -102,6 +114,7 @@ UnitCylinder::UnitCylinder() {
         t.modifyPoint(0) = Point(real(a_fiii.c, a_fiii.d), real(a_fiii.b, a_fiii.d), 1);
         t.modifyPoint(1) = Point(real(b_fiii.c, b_fiii.d), real(b_fiii.b, b_fiii.d), 1);
         t.modifyPoint(2) = Point(0, 0, 1);
+        if (!t.isValid()) throw std::runtime_error("top surface");
     }
     Surface& bot_surface = allocateSurface();
     for (int a=0; a<360; a+=step) {
@@ -112,6 +125,7 @@ UnitCylinder::UnitCylinder() {
         t.modifyPoint(0) = Point(real(a_fiii.c, a_fiii.d), real(a_fiii.b, a_fiii.d), 0);
         t.modifyPoint(1) = Point(real(b_fiii.c, b_fiii.d), real(b_fiii.b, b_fiii.d), 0);
         t.modifyPoint(2) = Point(0, 0, 0);
+        if (!t.isValid()) throw std::runtime_error("bot surface");
     }
     Surface& outer_surface = allocateSurface();
     for (int a=0; a<360; a+=step) {
@@ -122,10 +136,12 @@ UnitCylinder::UnitCylinder() {
         t1.modifyPoint(0) = Point(real(b_fiii.c, b_fiii.d), real(b_fiii.b, b_fiii.d), 1);
         t1.modifyPoint(1) = Point(real(a_fiii.c, a_fiii.d), real(a_fiii.b, a_fiii.d), 1);
         t1.modifyPoint(2) = Point(real(a_fiii.c, a_fiii.d), real(a_fiii.b, a_fiii.d), 0);
+        if (!t1.isValid()) throw std::runtime_error("side surface");
         Triangle& t2 = outer_surface.allocateTriangle();
         t2.modifyPoint(0) = Point(real(a_fiii.c, a_fiii.d), real(a_fiii.b, a_fiii.d), 0);
         t2.modifyPoint(1) = Point(real(b_fiii.c, b_fiii.d), real(b_fiii.b, b_fiii.d), 0);
         t2.modifyPoint(2) = Point(real(b_fiii.c, b_fiii.d), real(b_fiii.b, b_fiii.d), 1);
+        if (!t2.isValid()) throw std::runtime_error("side surface");
     }
 }
 
@@ -134,6 +150,9 @@ bool UnitCylinder::inside(const Vector4r& p) {
     if (p[2] < 0 || p[2] > 1) return false;
     
     // Simple check if the point it outside of an ideal circle
+    // The vertices of the outer curve lie on an idea circle, which means
+    // that the edges lie slightly inside. We can therefore accurately exclude points
+    // that lie outside of the idea circle.
     real sqd = p[0]*p[0] + p[1]*p[1];
     if (sqd > 1) return false;
     
@@ -162,7 +181,7 @@ bool UnitCylinder::inside(const Vector4r& p) {
     return false;
 }
 
-virtual bool Transform::inside(const Vector4r& p) {
+bool Transform::inside(const Vector4r& p) {
     return child->inside(getInverse() * p);
 }
 

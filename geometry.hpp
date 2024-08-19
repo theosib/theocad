@@ -4,6 +4,7 @@
 #include <eigen3/Eigen/Dense>
 #include <boost/rational.hpp>
 #include <cstdint>
+#include <iostream>
 
 /*
 Notes:
@@ -25,12 +26,21 @@ inline Vector4r Vector() { return Vector(0, 0, 0); }
 
 inline std::ostream& operator<<(std::ostream& os, const Vector4r& i) {
     os << '<';
-    os << boost::rational_cast<float>(i[0]) << ',';
-    os << boost::rational_cast<float>(i[1]) << ',';
-    os << boost::rational_cast<float>(i[2]) << ',';
-    os << boost::rational_cast<float>(i[3]) << '>';
+    os << (i[0]) << ',';
+    os << (i[1]) << ',';
+    os << (i[2]) << ',';
+    os << (i[3]) << '>';
     return os;
 }
+
+// inline std::ostream& operator<<(std::ostream& os, const Vector4r& i) {
+//     os << '<';
+//     os << boost::rational_cast<float>(i[0]) << ',';
+//     os << boost::rational_cast<float>(i[1]) << ',';
+//     os << boost::rational_cast<float>(i[2]) << ',';
+//     os << boost::rational_cast<float>(i[3]) << '>';
+//     return os;
+// }
 
 inline real dot(const Vector4r& a, const Vector4r& b) {
     return a.head<3>().dot(b.head<3>());
@@ -66,6 +76,12 @@ struct Plane {
     }
 };
 
+inline std::ostream& operator << (std::ostream& os, const Plane& t) {
+    os << t.c[0] << ":" << t.c[1] << ":" << t.c[2] << ":" << t.c[3];
+    return os;
+}
+
+
 struct Line {
     Vector4r p[2];
     
@@ -85,6 +101,8 @@ struct Line {
     
     Vector4r& operator[](int ix) { return p[ix]; }
     const Vector4r& operator[](int ix) const { return p[ix]; }
+    
+    bool parallelTo(const Line& that) const;
 };
 
 inline std::ostream& operator << (std::ostream& os, const Line& l) {
@@ -95,7 +113,7 @@ inline std::ostream& operator << (std::ostream& os, const Line& l) {
 class Triangle {
     enum {
         PLANE_VALID = 1,
-        NORMAL_VALID = 2
+        //NORMAL_VALID = 2
     };
     
     int valid = 0;
@@ -123,10 +141,11 @@ public:
         points[1] = p2;
         points[2] = p3;
         valid = 0;
+        //if (!isValid()) throw std::runtime_error("bad triangle");
     }
     
-    Vector4r center() {
-        Vector4r total = Vector(0, 0, 0);
+    Vector4r center() const {
+        Vector4r total{};
         total += points[0];
         total += points[1];
         total += points[2];
@@ -167,6 +186,7 @@ public:
         Vector4r that_normal = that.getNormal();
         Vector4r cross_product = cross(this_normal, that_normal);
         real cross_magnitude_squared = dot(cross_product, cross_product);
+        std::cout << "Checking parallel this=" << this_normal << " that=" << that_normal << " cross=" << cross_product << " sqr=" << cross_magnitude_squared << std::endl;
         return cross_magnitude_squared == 0;
     }
     
@@ -178,6 +198,7 @@ public:
         Plane plane = getPlane();
         Vector4r point_on_t2 = that[0];  // Take any point from t2
 
+        std::cout << "Checking coplanar of " << point_on_t2 << " on " << plane << std::endl;
         // Compute the signed distance from the point to the plane
         real distance = plane.signedDistanceNumerator(point_on_t2);
         return distance == 0;
@@ -219,7 +240,26 @@ public:
         }
         return false;
     }
+    
+    bool isValid() const {
+        if (points[0] == points[1]) return false;
+        if (points[0] == points[2]) return false;
+        if (points[2] == points[1]) return false;
+        Line e0 = getEdge(0);
+        Line e1 = getEdge(1);
+        Line e2 = getEdge(2);
+        if (e0.parallelTo(e1)) return false;
+        if (e1.parallelTo(e2)) return false;
+        if (e2.parallelTo(e0)) return false;
+        return true;
+    }
 };
+
+
+inline std::ostream& operator << (std::ostream& os, const Triangle& t) {
+    os << t[0] << ":" << t[1] << ":" << t[2];
+    return os;
+}
 
 // Invalid if coplanar or parallel
 Line planeIntersection(const Plane& plane1, const Plane& plane2);
@@ -236,6 +276,7 @@ struct LineIntersection {
 // LineTriangleIntersection intersect(const Line& line, const Triangle& triangle);
 LineIntersection lineIntersection(const Line& a, const Line& b);
 
+void sliceTriangles(const std::vector<Triangle>& A, const std::vector<Triangle>& B, std::vector<Triangle>& result);
 
 inline std::ostream& operator<<(std::ostream& os, const LineIntersection& i) {
     os << "exists=" << i.exists << " coincident=" << i.coincident << " skew=" << i.skew << " coplanar=" << i.coplanar << " in_line=" << i.inside_line[0] << "," << i.inside_line[1] << " t=" << i.t[0] << "," << i.t[1];
